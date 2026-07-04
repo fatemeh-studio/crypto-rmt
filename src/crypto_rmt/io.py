@@ -56,9 +56,8 @@ TICKERS: tuple[str, ...] = (
 #: Filename pattern for the per-asset raw price files.
 PRICE_FILE_TEMPLATE: str = "{ticker}_Price_1h.txt"
 
-#: Decimal precision passed to :func:`numpy.round` when deriving the window.
-#: ``-2`` rounds the shortest series length down to the nearest hundred.
-_WINDOW_ROUND_DECIMALS: int = -2
+#: Step size for the window derivation.
+_WINDOW_STEP: int = 100
 
 
 def _forward_fill(series: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
@@ -116,7 +115,7 @@ def default_window(prices: dict[str, npt.NDArray[np.float64]]) -> int:
     if not prices:
         raise ValueError("`prices` is empty; cannot derive a window length.")
     min_len = min(series.size for series in prices.values())
-    return int(np.round(min_len, _WINDOW_ROUND_DECIMALS)) + 1
+    return ((min_len - 1) // _WINDOW_STEP) * _WINDOW_STEP + 1
 
 
 def load_prices(
