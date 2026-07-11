@@ -59,12 +59,9 @@ TICKERS: tuple[str, ...] = (
     "LINK",
     "UNI",
     "AAVE",
-    "MKR",
     "CRV",
     "SUSHI",
     "SAND",
-    "USDC",
-    "DAI",
 )
 
 # Sector tags -- used later to annotate the cluster map and read the eigenvectors.
