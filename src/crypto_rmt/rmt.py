@@ -34,6 +34,7 @@ __all__ = [
     "null_spectrum",
     "null_threshold",
     "marchenko_pastur_bounds",
+    "marchenko_pastur_density",
 ]
 
 #: Number of shuffled matrices generated per distinct asset pair. With ``N``
@@ -269,3 +270,55 @@ def marchenko_pastur_bounds(
         raise ValueError("n and t must be positive.")
     q = np.sqrt(n / t)
     return (1.0 - q) ** 2, (1.0 + q) ** 2
+
+
+def marchenko_pastur_density(
+    eigenvalues: npt.NDArray[np.float64],
+    n: int,
+    t: int,
+) -> npt.NDArray[np.float64]:
+    """Marchenko-Pastur spectral density evaluated at ``eigenvalues``.
+
+    Parameters
+    ----------
+    eigenvalues : numpy.ndarray
+        Points ``lambda`` at which to evaluate the density.
+    n : int
+        Number of series (matrix dimension ``N``).
+    t : int
+        Number of observations per series.
+
+    Returns
+    -------
+    numpy.ndarray
+        The MP density ``rho(lambda)`` at each point, ``0`` outside the support
+        ``[lambda_minus, lambda_plus]``.
+
+    Raises
+    ------
+    ValueError
+        If ``n`` or ``t`` is non-positive.
+
+    Notes
+    -----
+    For a unit-variance (correlation) matrix with ratio ``r = N/T``, the density
+    is ``rho(x) = sqrt((lambda_plus - x)(x - lambda_minus)) / (2 * pi * r * x)``
+    on ``[lambda_minus, lambda_plus]`` with ``lambda_pm = (1 +/- sqrt(r))**2``,
+    and ``0`` elsewhere. It integrates to ``1`` over its support for ``N <= T``
+    (``r <= 1``), the regime here. This is the theoretical noise curve overlaid
+    on the empirical eigenvalue histogram; the bulk that matches it is
+    indistinguishable from noise, while eigenvalues beyond ``lambda_plus`` carry
+    genuine structure.
+    """
+    if n <= 0 or t <= 0:
+        raise ValueError("n and t must be positive.")
+    lam = np.asarray(eigenvalues, dtype=np.float64)
+    r = n / t
+    lam_minus, lam_plus = (1.0 - np.sqrt(r)) ** 2, (1.0 + np.sqrt(r)) ** 2
+
+    density = np.zeros_like(lam)
+    inside = (lam > lam_minus) & (lam < lam_plus)
+    x = lam[inside]
+    density[inside] = np.sqrt((lam_plus - x) * (x - lam_minus)) / (2.0 * np.pi * r * x)
+    return density
+    

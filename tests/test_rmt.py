@@ -16,6 +16,8 @@ from crypto_rmt.rmt import (
     correlation_matrix,
     eigsystem,
     ipr,
+    marchenko_pastur_bounds,
+    marchenko_pastur_density,
     null_threshold,
     participation_ratio,
     shuffle_correlation,
@@ -75,3 +77,27 @@ def test_integration_reproduces_ground_truth_spectrum() -> None:
 
     rng = np.random.default_rng(0)
     assert null_threshold(C, rng=rng) < evals[0]
+
+
+def test_mp_density_integrates_to_one() -> None:
+    """The MP density integrates to ~1 over its support and is 0 at the edges."""
+    n, t = 17, 5000
+    lo, hi = marchenko_pastur_bounds(n, t)
+    grid = np.linspace(lo, hi, 100_000)
+    integral = np.trapezoid(marchenko_pastur_density(grid, n, t), grid)
+    assert integral == pytest.approx(1.0, abs=1e-3)
+    assert marchenko_pastur_density(np.array([lo, hi]), n, t).tolist() == [0.0, 0.0]
+
+
+def test_mp_density_zero_outside_support() -> None:
+    """The density vanishes strictly outside ``[lambda_minus, lambda_plus]``."""
+    n, t = 10, 400
+    lo, hi = marchenko_pastur_bounds(n, t)
+    outside = np.array([lo - 0.1, hi + 0.1, hi * 5.0])
+    assert np.all(marchenko_pastur_density(outside, n, t) == 0.0)
+
+
+def test_mp_density_rejects_nonpositive() -> None:
+    """Non-positive ``n`` or ``t`` raises ``ValueError``."""
+    with pytest.raises(ValueError):
+        marchenko_pastur_density(np.array([1.0]), 0, 100)

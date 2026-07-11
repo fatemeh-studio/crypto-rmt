@@ -27,6 +27,7 @@ from crypto_rmt.plotting import (
     plot_collectivity,
     plot_participation,
     plot_regime_panel,
+    plot_spectrum_vs_mp,
     plot_spectrum_vs_null,
 )
 
@@ -130,3 +131,12 @@ def test_plot_regime_panel_returns_figure_and_axes(tmp_path: Path) -> None:
     assert out.exists()
     assert out.stat().st_size > 0
     plt.close("all")
+
+
+def test_plot_spectrum_vs_mp_returns_axes() -> None:
+    """The MP spectrum plot returns an Axes; eigenvalues span bulk + a market mode."""
+    eigenvalues = np.array([11.3, 1.4, 1.1, 1.0, 0.9, 0.6, 0.3])
+    ax = plot_spectrum_vs_mp(eigenvalues, n=eigenvalues.size, t=5000)
+    assert isinstance(ax, Axes)
+    plt.close("all")
+    

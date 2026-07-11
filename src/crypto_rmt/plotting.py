@@ -38,6 +38,7 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 __all__ = [
+    "plot_spectrum_vs_mp",
     "plot_spectrum_vs_null",
     "plot_participation",
     "plot_cluster_map",
@@ -272,6 +273,134 @@ def plot_spectrum_vs_null(
     ax.set_ylabel("density")
     ax.set_title("Eigenvalue spectrum vs shuffled null (right of threshold = signal)")
     ax.legend()
+
+    _finalize(fig, save)
+    return ax
+
+
+def plot_spectrum_vs_mp(
+    eigenvalues: npt.NDArray[np.float64],
+    n: int,
+    t: int,
+    *,
+    ax: Axes | None = None,
+    save: str | Path | None = None,
+) -> Axes:
+    """Plot the empirical eigenvalues against the Marchenko-Pastur noise band.
+
+    Parameters
+    ----------
+    eigenvalues : numpy.ndarray
+        The real correlation-matrix eigenvalues (e.g. from
+        :func:`crypto_rmt.rmt.eigsystem`).
+    n : int
+        Number of assets ``N`` (matrix dimension) used to estimate the
+        correlation matrix.
+    t : int
+        Number of observations ``T`` per asset in that estimation window. Sets
+        the Marchenko-Pastur ratio ``N / T`` and hence the width of the noise
+        band.
+    ax : matplotlib.axes.Axes, optional
+        Axes to draw on. A new figure/axes is created when omitted.
+    save : str or pathlib.Path, optional
+        If given, the figure is saved to this path.
+
+    Returns
+    -------
+    matplotlib.axes.Axes
+        The axes containing the plot.
+
+    Notes
+    -----
+    With only ``N`` eigenvalues, individual eigenvalues are drawn as stems rather
+    than a coarse histogram, and the theoretical MP density
+    (:func:`crypto_rmt.rmt.marchenko_pastur_density`) is overlaid as the smooth
+    noise curve. Eigenvalues inside ``[lambda_minus, lambda_plus]`` are the noise
+    bulk; those above ``lambda_plus`` are genuine signal, and the largest (the
+    market mode) is highlighted. The x-axis is logarithmic so the tight noise
+    band near ``1`` and a market mode many times larger stay legible together --
+    with hourly data ``T`` greatly exceeds ``N``, so the band is narrow and most
+    eigenvalues fall outside it.
+    """
+    from crypto_rmt.rmt import marchenko_pastur_bounds, marchenko_pastur_density
+
+    fig, ax = _prepare_axes(ax)
+
+    eigenvalues = np.asarray(eigenvalues, dtype=float)
+    lam_minus, lam_plus = marchenko_pastur_bounds(n, t)
+
+    grid = np.linspace(lam_minus, lam_plus, 400)
+    density = marchenko_pastur_density(grid, n, t)
+    ax.plot(grid, density, color="0.35", linewidth=1.5, zorder=3, label="MP density")
+    ax.fill_between(grid, density, color="0.85", zorder=1)
+
+    stem_height = float(density.max()) if density.size else 1.0
+    for edge in (lam_minus, lam_plus):
+        ax.axvline(edge, color="0.5", linestyle=":", linewidth=1.0, zorder=2)
+
+    market_mode = int(np.argmax(eigenvalues))
+    above = eigenvalues > lam_plus
+    above[market_mode] = False  # market mode highlighted separately
+    bulk = ~above
+    bulk[market_mode] = False
+
+    ax.vlines(
+        eigenvalues[bulk],
+        0,
+        stem_height,
+        color="0.6",
+        linewidth=1.2,
+        zorder=4,
+        label=r"bulk ($\lambda \leq \lambda_+$)",
+    )
+    if above.any():
+        ax.vlines(
+            eigenvalues[above],
+            0,
+            stem_height,
+            color=_COLLECTIVITY_COLOR,
+            linewidth=1.5,
+            zorder=4,
+            label=r"signal ($\lambda > \lambda_+$)",
+        )
+    ax.vlines(
+        eigenvalues[market_mode],
+        0,
+        stem_height,
+        color=_PEAK_COLOR,
+        linewidth=2.0,
+        zorder=5,
+    )
+    ax.plot(
+        eigenvalues[market_mode],
+        stem_height,
+        marker="*",
+        color=_PEAK_COLOR,
+        markersize=15,
+        zorder=6,
+        label="market mode",
+    )
+    ax.annotate(
+        rf"$\lambda_{{\max}}$ = {eigenvalues[market_mode]:.1f}",
+        (eigenvalues[market_mode], stem_height),
+        textcoords="offset points",
+        xytext=(-6, -4),
+        ha="right",
+        fontsize=9,
+        fontweight="bold",
+        color=_PEAK_COLOR,
+        zorder=6,
+    )
+
+    n_signal = int((eigenvalues > lam_plus).sum())
+    ax.set_xscale("log")
+    ax.set_xlabel("eigenvalue")
+    ax.set_ylabel("MP density")
+    ax.set_title(
+        f"Eigenvalue spectrum vs Marchenko-Pastur "
+        f"({n_signal} of {eigenvalues.size} above $\\lambda_+$)"
+    )
+    ax.legend(loc="upper left", fontsize=8)
 
     _finalize(fig, save)
     return ax
@@ -564,3 +693,4 @@ def plot_regime_panel(
 
     _finalize(fig, save)
     return fig, (ax_top, ax_bottom)
+    
