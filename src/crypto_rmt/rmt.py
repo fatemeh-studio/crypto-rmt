@@ -33,6 +33,7 @@ __all__ = [
     "shuffle_correlation",
     "null_spectrum",
     "null_threshold",
+    "marchenko_pastur_bounds",
 ]
 
 #: Number of shuffled matrices generated per distinct asset pair. With ``N``
@@ -237,3 +238,34 @@ def null_threshold(
         eigenvalue exceeding this threshold is evidence of genuine structure.
     """
     return float(null_spectrum(C, n_shuffles=n_shuffles, rng=rng).max())
+
+
+def marchenko_pastur_bounds(
+    n: int,
+    t: int,
+) -> tuple[float, float]:
+    """Marchenko-Pastur eigenvalue bounds for ``N`` series over ``T`` observations.
+
+    Parameters
+    ----------
+    n : int
+        Number of series (matrix dimension ``N``).
+    t : int
+        Number of observations per series.
+
+    Returns
+    -------
+    tuple of float
+        ``(lambda_minus, lambda_plus) = ((1 - sqrt(N/T))**2, (1 + sqrt(N/T))**2)``.
+        Eigenvalues of a pure-noise correlation matrix fall within these bounds;
+        those above ``lambda_plus`` are candidate signal.
+
+    Raises
+    ------
+    ValueError
+        If ``n`` or ``t`` is non-positive.
+    """
+    if n <= 0 or t <= 0:
+        raise ValueError("n and t must be positive.")
+    q = np.sqrt(n / t)
+    return (1.0 - q) ** 2, (1.0 + q) ** 2
