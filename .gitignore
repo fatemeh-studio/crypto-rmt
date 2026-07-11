@@ -27,6 +27,7 @@ htmlcov/
 
 # --- Editors / OS ---
 .vscode/
+.cursor/
 .idea/
 .DS_Store
 *.swp
@@ -41,7 +42,6 @@ data/*
 
 # Agent rules — active locally, kept out of the public repo
 AGENTS.md
-.cursor/
 
 # Personal planning docs
 plans/
